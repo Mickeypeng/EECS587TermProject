@@ -1,5 +1,7 @@
 #include <iostream>
 #include <vector>
+#include <math.h>
+#include <numeric>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -9,34 +11,143 @@
 
 using namespace cv;
 using namespace cv::xfeatures2d;
+using namespace std;
+
+double calDis(vector<double>& d1, vector<double>& d2){
+    double result = 0;
+    for(int i = 0; i < d1.size(); i++){
+        result += (d1[i] - d2[i])*(d1[i] - d2[i]);
+    }
+    result = sqrt(result);
+    // cout << result << endl;
+    return result;
+}
+
+int findMatch(vector<double>& dis, double thres){
+    double firstmin = 10;
+    double secondmin = 10;
+    int firstindex = -1;
+    for(int i = 0; i < dis.size(); i++){
+        if(dis[i] < firstmin){
+            secondmin = firstmin;
+            firstmin = dis[i];
+            firstindex = i;
+        }else if(dis[i] < secondmin){
+            secondmin = dis[i];
+        }else{
+            continue;
+        }
+    }
+    if(firstmin/secondmin< thres){
+        // cout << firstindex << endl;
+        return firstindex;
+    }
+    return -1;
+}
+
+void findPair(vector<vector<double> > & distance, vector<DMatch>& matches){
+    double threshold = 0.75;
+    for(int i = 0; i < distance.size(); i++){
+        int pind = findMatch(distance[i], threshold);
+        if(pind != -1){
+            DMatch nmatch = DMatch(i, pind, distance[i][pind]);
+            matches.push_back(nmatch);
+        }
+    }
+}
+
+void calMeanVar(vector<double>& v, double& mean, double& var){
+    double sum = accumulate(v.begin(), v.end(), 0.0);
+    mean =  sum / v.size();
+    double sq_sum = inner_product(v.begin(), v.end(), v.begin(), 0.0);
+    var = sqrt(sq_sum / v.size() - mean * mean);
+    return; 
+}
+
+void normalize(vector<double>& v){
+    double mean = 0;
+    double var = 0;
+    calMeanVar(v, mean, var);
+    for(int i = 0; i < v.size(); i++){
+        v[i] = (v[i] - mean) / var;
+    }
+    return;
+}
 
 int main(int argc, char** argv ){
     if ( argc != 3 ){
-        printf("usage: serial <Image_Path_Left> <Image_Path_Right>\n");
+        cout << "usage: serial <Image_Path_Left> <Image_Path_Right>" << endl;
         return -1;
     }
     Mat left_img;
-    left_img = imread( argv[1], 1 );
+    left_img = imread(argv[1], 0);
     Mat right_img;
-    right_img = imread( argv[2], 1 );
+    right_img = imread(argv[2], 0);
     if ( !left_img.data || !right_img.data){
-        printf("No image data \n");
+        cout << "No image data" << endl;
         return -1;
     }
 
-    Ptr<SIFT> detector = SIFT::create( 400 );
-    std::vector<KeyPoint> keypoints1, keypoints2;
+    int nums_des = 400;
+
+    Ptr<SIFT> detector = SIFT::create(nums_des);
+    vector<KeyPoint> keypoints1, keypoints2;
     Mat descriptors1, descriptors2;
     detector->detectAndCompute( left_img, noArray(), keypoints1, descriptors1 );
     detector->detectAndCompute( right_img, noArray(), keypoints2, descriptors2 );
 
-    Mat nlimg;
-    drawKeypoints(left_img, keypoints1, nlimg);
+    vector<vector<double> > des1;
+    vector<vector<double> > des2;
+
+    if(descriptors1.rows != nums_des && descriptors2.rows != nums_des ){
+        cout << "Not " << nums_des << " descriptors" << endl;
+        return -1;
+    }
+
+    for (int i = 0; i < descriptors1.rows; i++) {
+        vector<double> tmp1;
+        vector<double> tmp2;
+        for(int j = 0; j < descriptors1.cols; j++){
+            tmp1.push_back(double(*(descriptors1.ptr<uchar>(i) + j)));
+            tmp2.push_back(double(*(descriptors2.ptr<uchar>(i) + j)));
+        }
+        des1.push_back(tmp1);
+        des2.push_back(tmp2);
+    }
+
+    // cout << des1.size() << endl;
+    // for(int i = 0; i < 128; i++){
+    //     cout << des1[0][i] << endl;
+    // }
+    // normalize(des1[0]);
+    // for(int i = 0; i < 128; i++){
+    //     cout << des1[0][i] << endl;
+    // }
+
+    vector<vector<double> > distance(nums_des, vector<double>(nums_des, 0));
+    for(int i = 0; i < nums_des; i++){
+        for(int j = 0; j < nums_des; j++){
+            normalize(des1[i]);
+            normalize(des2[j]);
+            distance[i][j] = calDis(des1[i], des2[j]);
+            // distance[i][j] = norm(des1[i], des2[j], NORM_L2, noArray() );
+        }
+    }
+    vector<DMatch> matches;
+    findPair(distance, matches);
+    cout << matches.size() << endl;
+    Mat outImg;
+    drawMatches(left_img, keypoints1, right_img, keypoints2, matches, outImg);
+
+
+
+    // Mat nlimg;
+    // drawKeypoints(left_img, keypoints1, nlimg);
     
-    imwrite("./keypoints_left.jpg", nlimg);
+    // imwrite("./keypoints_left.jpg", nlimg);
     
     // namedWindow("Display Image", WINDOW_AUTOSIZE );
-    // imshow("Display Image", nlimg);
-    // waitKey(0);
+    imshow("Display Image", outImg);
+    waitKey(0);
     return 0;
 }
