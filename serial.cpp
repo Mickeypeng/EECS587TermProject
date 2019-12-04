@@ -2,6 +2,8 @@
 #include <vector>
 #include <math.h>
 #include <numeric>
+#include <limits>
+#include <fstream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
@@ -12,6 +14,21 @@
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace std;
+
+void writeMatFile(vector<vector<double> >& v, string fileName){
+    string output;
+    for(int i = 0; i < v.size(); i++){
+        for(int j = 0; j < v[0].size(); j++){
+            output += to_string(v[i][j]) + " ";
+        }
+        output += "\n";
+    }
+    ofstream myfile;
+    myfile.open (fileName);
+    myfile << output;
+    myfile.close();
+    return;
+}
 
 double calDis(vector<double>& d1, vector<double>& d2){
     double result = 0;
@@ -24,20 +41,22 @@ double calDis(vector<double>& d1, vector<double>& d2){
 }
 
 int findMatch(vector<double>& dis, double thres){
-    double firstmin = 10;
-    double secondmin = 10;
+    double firstmin = numeric_limits<double>::max();
+    double secondmin = numeric_limits<double>::max();
     int firstindex = -1;
     for(int i = 0; i < dis.size(); i++){
         if(dis[i] < firstmin){
             secondmin = firstmin;
             firstmin = dis[i];
             firstindex = i;
-        }else if(dis[i] < secondmin){
+        }else if(dis[i] < secondmin && dis[i] != firstmin){
             secondmin = dis[i];
         }else{
             continue;
         }
     }
+    // cout << "first: " << firstmin << endl;
+    // cout << "second: " << secondmin << endl;
     if(firstmin/secondmin< thres){
         // cout << firstindex << endl;
         return firstindex;
@@ -46,7 +65,7 @@ int findMatch(vector<double>& dis, double thres){
 }
 
 void findPair(vector<vector<double> > & distance, vector<DMatch>& matches){
-    double threshold = 0.75;
+    double threshold = 0.7;
     for(int i = 0; i < distance.size(); i++){
         int pind = findMatch(distance[i], threshold);
         if(pind != -1){
@@ -96,20 +115,22 @@ int main(int argc, char** argv ){
     detector->detectAndCompute( left_img, noArray(), keypoints1, descriptors1 );
     detector->detectAndCompute( right_img, noArray(), keypoints2, descriptors2 );
 
+    // cout << descriptors1.type() << endl;
+
     vector<vector<double> > des1;
     vector<vector<double> > des2;
 
-    if(descriptors1.rows != nums_des && descriptors2.rows != nums_des ){
-        cout << "Not " << nums_des << " descriptors" << endl;
+    if(descriptors1.rows < nums_des || descriptors2.rows < nums_des ){
+        cout << "Not " << nums_des << " descriptors, have total " << descriptors1.rows << endl;
         return -1;
     }
 
-    for (int i = 0; i < descriptors1.rows; i++) {
+    for (int i = 0; i < nums_des; i++) {
         vector<double> tmp1;
         vector<double> tmp2;
         for(int j = 0; j < descriptors1.cols; j++){
-            tmp1.push_back(double(*(descriptors1.ptr<uchar>(i) + j)));
-            tmp2.push_back(double(*(descriptors2.ptr<uchar>(i) + j)));
+            tmp1.push_back(double(*(descriptors1.ptr<float>(i) + j)));
+            tmp2.push_back(double(*(descriptors2.ptr<float>(i) + j)));
         }
         des1.push_back(tmp1);
         des2.push_back(tmp2);
@@ -124,6 +145,9 @@ int main(int argc, char** argv ){
     //     cout << des1[0][i] << endl;
     // }
 
+    writeMatFile(des1, "img1_400.txt");
+    writeMatFile(des2, "img2_400.txt");
+
     vector<vector<double> > distance(nums_des, vector<double>(nums_des, 0));
     for(int i = 0; i < nums_des; i++){
         for(int j = 0; j < nums_des; j++){
@@ -133,6 +157,9 @@ int main(int argc, char** argv ){
             // distance[i][j] = norm(des1[i], des2[j], NORM_L2, noArray() );
         }
     }
+
+    writeMatFile(distance, "400_distance.txt");
+
     vector<DMatch> matches;
     findPair(distance, matches);
     cout << matches.size() << endl;
