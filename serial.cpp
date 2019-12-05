@@ -331,10 +331,10 @@ int main(int argc, char** argv ){
     // Mat nlimg;
     // drawKeypoints(left_img, keypoints1, nlimg);
     
-    // imwrite("./keypoints_left.jpg", nlimg);
+    imwrite("./test.jpg", outimg);
     
     // namedWindow("Display Image", WINDOW_AUTOSIZE );
-    imshow("Display Image", outimg);
-    waitKey(0);
+    // imshow("Display Image", outimg);
+    // waitKey(0);
     return 0;
 }
