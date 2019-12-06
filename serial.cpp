@@ -173,29 +173,34 @@ double pointDis(vector<float>& p, vector<vector<double> >& h){
 }
 
 vector<vector<double> > ransac(vector<vector<float> >& coords){
-    int numTrials = 1;
+    int numTrials = 100;
     float thres = 5.0;
     int K = 4;
     vector<vector<float> > bestinliers;
+    double besterror;
     for(int i = 0; i < numTrials; i++){
         vector<vector<float> > subset;
         findSubset(coords, K, subset);
         vector<vector<double> > h(3, vector<double>(3, 0));
         fitModel(subset, h);
         vector<vector<float> > inliers;
+        double allerror = 0;
         for(int j = 0; j < coords.size(); j++){
             double dis = pointDis(coords[j], h);
             if(dis < thres){
                 inliers.push_back(coords[j]);
+                allerror += dis;
             }
         }
         if(inliers.size() > bestinliers.size()){
             bestinliers = inliers;
+            besterror = allerror;
         }
     }
     vector<vector<double> > besth(3, vector<double>(3, 0));
     fitModel(bestinliers, besth);
     cout << bestinliers.size() << endl;
+    cout << "error: " << besterror / bestinliers.size() << endl;
     return besth;
 }
 
@@ -262,7 +267,7 @@ int main(int argc, char** argv ){
         return -1;
     }
 
-    int nums_des = 100;
+    int nums_des = 400;
 
     Ptr<SIFT> detector = SIFT::create(nums_des);
     vector<KeyPoint> keypoints1, keypoints2;
@@ -331,10 +336,10 @@ int main(int argc, char** argv ){
     // Mat nlimg;
     // drawKeypoints(left_img, keypoints1, nlimg);
     
-    imwrite("./test.jpg", outimg);
+    // imwrite("./test.jpg", outimg);
     
-    // namedWindow("Display Image", WINDOW_AUTOSIZE );
-    // imshow("Display Image", outimg);
-    // waitKey(0);
+    namedWindow("Display Image", WINDOW_AUTOSIZE );
+    imshow("Display Image", outimg);
+    waitKey(0);
     return 0;
 }
