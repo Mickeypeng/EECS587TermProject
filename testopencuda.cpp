@@ -20,9 +20,9 @@ extern "C" int mulMatrix();
 
 int main(){
     Mat left_img;
-    left_img = imread(argv[1], 0);
+    left_img = imread("bbb_left.jpg", 0);
     Mat right_img;
-    right_img = imread(argv[2], 0);
+    right_img = imread("bbb_right.jpg", 0);
     if ( !left_img.data || !right_img.data){
         cout << "No image data" << endl;
         return -1;
