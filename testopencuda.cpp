@@ -12,6 +12,16 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
 
+#pragma comment ( lib,"opencv_core320.lib")
+#pragma comment ( lib,"opencv_highgui320.lib")
+#pragma comment ( lib,"opencv_calib3d320.lib")
+#pragma comment ( lib,"opencv_imgcodecs320.lib")
+#pragma comment ( lib,"opencv_imgproc320.lib")
+#pragma comment ( lib,"opencv_cudaimgproc320.lib")
+#pragma comment ( lib,"opencv_cudaarithm320.lib")
+#pragma comment ( lib,"cudart.lib")
+#pragma comment ( lib,"swap_image.lib"
+
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace std;
