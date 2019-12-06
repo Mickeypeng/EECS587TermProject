@@ -20,7 +20,7 @@
 #pragma comment ( lib,"opencv_cudaimgproc320.lib")
 #pragma comment ( lib,"opencv_cudaarithm320.lib")
 #pragma comment ( lib,"cudart.lib")
-#pragma comment ( lib,"swap_image.lib"
+#pragma comment ( lib,"mulMatrix.lib")
 
 using namespace cv;
 using namespace cv::xfeatures2d;
