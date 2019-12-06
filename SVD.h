@@ -99,8 +99,10 @@ vector<double> SVD(vector<vector<double> > &vv)
 	Matrix<double> v(m.GetRows(),m.GetCols());
 
 	dsvd(m, m.GetRows(), m.GetCols(), w.GetRawData(), v);
-	m.SortCols(w);
+	//m.SortCols(w);
 	V2v(w,ans);
+	v.Print();
+	sort(ans.begin(),ans.end());
 	return ans;
 }
 

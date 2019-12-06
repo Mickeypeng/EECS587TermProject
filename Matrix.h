@@ -482,6 +482,8 @@ void Matrix<T>::SortRows(Vector<T> &v)
 template<class T>
 void Matrix<T>::SortCols(Vector<T> &v)
 {
+    std::cout<<v.Size();
+    std::cout<<m_Cols;
 	assert(v.Size()==m_Cols);
 
 	bool sorted=false;
