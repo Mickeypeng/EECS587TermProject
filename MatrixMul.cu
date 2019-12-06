@@ -4,6 +4,11 @@
 #include <fstream>
 #include <cstdlib>
 #include <math.h>
+#include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/features2d.hpp>
+#include <opencv2/xfeatures2d.hpp>
 
 #define BLOCK_SIZE 16
 #define FEATURE_LEN 128
@@ -99,6 +104,15 @@ int main(int argc, char *argv[])
     }else{
         printf("Too many arguments!");
         return 1;
+    }
+
+    Mat left_img;
+    left_img = imread("bbb_left.jpg", 0);
+    Mat right_img;
+    right_img = imread("bbb_right.jpg", 0);
+    if ( !left_img.data || !right_img.data){
+        cout << "No image data" << endl;
+        return -1;
     }
 
     double* A = (double*)malloc(featureNum * FEATURE_LEN * sizeof(double)); // We represent a 2D matrix in the form of 1D array.
