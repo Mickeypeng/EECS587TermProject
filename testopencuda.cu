@@ -82,24 +82,24 @@ __global__ void matrixMulCUDA(double *A, double *B, double *C, int blockRow, int
         C[(blockIdx.x*BLOCK_SIZE+threadIdx.x)*featureNum+(blockIdx.y*BLOCK_SIZE+threadIdx.y)]=ans;
 }
 
-int main(int argc, char *argv[])
+extern "C" int mulMatrix()
 {
-    int featureNum;
+    int featureNum = 400;
     fstream fa("img1_400.txt",fstream::in);
     fstream fb("img2_400.txt",fstream::in);
     fstream fc("400_distance.txt",fstream::in);
 
 
-    if (argc == 1){
-        printf("Please input your feature number!");
-        return 1;
-    }else if (argc == 2){
-        featureNum = atoi(argv[1]);
-        printf("Input size: %d\n", featureNum);
-    }else{
-        printf("Too many arguments!");
-        return 1;
-    }
+    // if (argc == 1){
+    //     printf("Please input your feature number!");
+    //     return 1;
+    // }else if (argc == 2){
+    //     featureNum = atoi(argv[1]);
+    //     printf("Input size: %d\n", featureNum);
+    // }else{
+    //     printf("Too many arguments!");
+    //     return 1;
+    // }
 
     double* A = (double*)malloc(featureNum * FEATURE_LEN * sizeof(double)); // We represent a 2D matrix in the form of 1D array.
     double* B = (double*)malloc(featureNum * FEATURE_LEN * sizeof(double)); // We represent a 2D matrix in the form of 1D array.
