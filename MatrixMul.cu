@@ -8,8 +8,55 @@
 #define BLOCK_SIZE 16
 #define FEATURE_LEN 128
 using namespace std;
+//kp[featureNum][4]
+//h[3][3]->h[9]
+__global__ void InlineCuda(double *kp, bool *choose, double* h,int featureNum,double thres) {
+    unsigned int i = blockIdx.x*blockDim.x+ threadIdx.x;
+    if(i<featureNum)
+    {
+        double p0=kp[featureNum*i];
+        double p1=kp[featureNum*i+1];
+        double ep0,ep1,ep2;
+        ep0 = h[0]*p0 + h[1]*p1 + h[2];
+        ep1 = h[3]*p0 + h[4]*p1 + h[5];
+        ep2 = h[6]*p0 + h[7]*p1 + h[8];
+        ep0=ep0/ep2;
+        ep1=ep1/ep2;
+        ep0=ep0-kp[featureNum*i+2];
+        ep1=ep1-kp[featureNum*i+3];
 
-//
+        if(ep0*ep0+ep1*ep1<(thres*thres))
+            choose[i]=true;
+        else
+            choose[i]=false;
+    }
+}
+//fn2 power is the maxmimum power of 2 which fn2power<featureNum
+__global__ void SumCuda(bool * g_idata,int* cnt, int featureNum,int fn2power)
+{
+    __shared__ unsigned int sdata[1024];
+    unsigned int tid = threadIdx.x;//[0,1024)
+    if(tid<fn2power)
+    {
+        sdata[tid]=g_idata[tid];
+        if(tid+fn2power<featureNum)
+            sdata[tid]+=g_idata[tid+fn2power];
+        __syncthreads();
+        // do reduction in shared mem
+        for (unsigned int s=fn2power/2; s>0; s>>=1) {
+            if (tid < s) {
+                sdata[tid]+=sdata[tid+s];
+            }
+            __syncthreads();
+        }
+        // write result for this block to global mem
+        if(tid==0)
+        {
+            cnt[0]=sdata[0];
+        }
+
+    }
+}
 //fn2 power is the maxmimum power of 2 which fn2power<featureNum
 __global__ void FindMinCuda(double *g_idata, int *g_odata, int featureNum,int fn2power,double thres) {
     __shared__ double first[1024];
@@ -66,7 +113,7 @@ __global__ void FindMinCuda(double *g_idata, int *g_odata, int featureNum,int fn
         if(tid==0)
         {
             //printf("row:%d find:%d first: %f second: %f\n",blockIdx.x,firstInd[0],first[0],second[0]);
-            if(first[0]/second[0]<thres)
+            if(first[0]/second[0]<(thres*thres))
                 g_odata[blockIdx.x]=firstInd[0];
             else
                 g_odata[blockIdx.x]=-1;
@@ -257,7 +304,7 @@ cudaError_t MulWithCuda(double* A, double* B, double* C, int* indC, int featureN
 	// Is sync needed?
     CalDistanceCuda<<<CalDistanceGridDim,CalDistanceBlockDim>>>(dev_A,dev_B,dev_C,blockRowNum,blockColNum,featureNum);
     //TODO replace 256
-    FindMinCuda<<<FindMinGridDim,FindMinBlockDim>>>(dev_C,mC,featureNum,256,0.7*0.7);
+    FindMinCuda<<<FindMinGridDim,FindMinBlockDim>>>(dev_C,mC,featureNum,256,0.7);
     // Is sync needed?
     // copy result back
     cudaStatus = cudaMemcpy(C, dev_C, featureNum * featureNum * sizeof(double), cudaMemcpyDeviceToHost);
