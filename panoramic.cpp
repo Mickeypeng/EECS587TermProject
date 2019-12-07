@@ -61,17 +61,18 @@ int main(int argc, char** argv){
         // cout << "run warp" << endl;
         outimg = warpImages(imageData[left], imageData[right], besth);
         // cout << "finish warp" << endl;
-        namedWindow("Display Image", WINDOW_AUTOSIZE );
-        imshow("Display Image", outimg);
-        waitKey(0);
+        // namedWindow("Display Image", WINDOW_AUTOSIZE );
+        // imshow("Display Image", outimg);
+        // waitKey(0);
         imageData.erase(imageData.begin() + right);
         imageData.erase(imageData.begin() + left);
         imageData.push_back(outimg);
         count--;
     }
     cout << "finish" << endl;
-    namedWindow("Display Image", WINDOW_AUTOSIZE );
-    imshow("Display Image", outimg);
-    waitKey(0);
+    // namedWindow("Display Image", WINDOW_AUTOSIZE );
+    // imshow("Display Image", outimg);
+    // waitKey(0);
+    imwrite("./pano.jpg", outimg);
     return 0;
 }
