@@ -9,36 +9,109 @@
 #define FEATURE_LEN 128
 using namespace std;
 
-void calMeanVar(double* v, double& mean, double& var){
-    double sum = 0;
-    for(int i=0;i<FEATURE_LEN;i++)
-        sum+=v[i];
-    mean =  sum / FEATURE_LEN;
-    double sq_sum = 0;
-    for(int i=0;i<FEATURE_LEN;i++)
-        sq_sum+=v[i]*v[i];
-    var = sqrt(sq_sum / FEATURE_LEN - mean * mean);
-    //printf("%f,%f\n",mean,var);
-    return;
-}
+//
+//fn2 power is the maxmimum power of 2 which fn2power<featureNum
+__global__ void FindMinCuda(double *g_idata, int *g_odata, int featureNum,int fn2power,double thres) {
+    __shared__ double first[1024];
+    __shared__ double second[1024];
+    __shared__ int firstInd[1024];
+    // each thread loads one element from global to shared mem
+    unsigned int tid = threadIdx.x;//[0,1024)
+    unsigned int i = blockIdx.x*featureNum + threadIdx.x;
+    double tmp;
+    if(tid<fn2power)
+    {
+        first[tid]=g_idata[i];
+        firstInd[tid]=tid;
+        if(tid+fn2power<featureNum)
+        {
+            second[tid]=g_idata[i+fn2power];
+            if(first[tid]>second[tid])
+            {
+                tmp=first[tid];
+                first[tid]=second[tid];
+                second[tid]=tmp;
+                firstInd[tid]=tid+fn2power;
+            }
+        }
+        else
+        {
+            second[tid]=20000;
+        }
 
-void normalize(double* v){
-    double mean = 0;
-    double var = 0;
-    calMeanVar(v, mean, var);
-    for(int i = 0; i < FEATURE_LEN; i++){
-        v[i] = (v[i] - mean) / var;
+        __syncthreads();
+        // do reduction in shared mem
+        for (unsigned int s=fn2power/2; s>0; s>>=1) {
+            if (tid < s) {
+                if(first[tid]>first[tid+s])
+                {
+
+                    if(second[tid+s]>first[tid])
+                        second[tid]=first[tid];
+                    else
+                        second[tid]=second[tid+s];
+
+                    first[tid]=first[tid+s];
+                    firstInd[tid]=firstInd[tid+s];
+                }
+                else
+                {
+                    if(second[tid]>first[tid+s])
+                        second[tid]=first[tid+s];
+                }
+            }
+            __syncthreads();
+        }
+        // write result for this block to global mem
+        if(tid==0)
+        {
+            //printf("row:%d find:%d first: %f second: %f\n",blockIdx.x,firstInd[0],first[0],second[0]);
+            if(first[0]/second[0]<thres)
+                g_odata[blockIdx.x]=firstInd[0];
+            else
+                g_odata[blockIdx.x]=-1;
+        }
+        //if(tid==0) printf("%d sum:%f\n",blockIdx.x,tmp);
     }
-    return;
 }
 
-cudaError_t MulWithCuda(double* A, double* B, double* C, int matrixSize);
-__global__ void matrixMulCUDA(double *A, double *B, double *C, int blockRow, int blockCol,int featureNum)
+
+__global__ void NormalizeCuda(double *g_idata) {
+    __shared__ double sdata[FEATURE_LEN];
+    __shared__ double asdata[FEATURE_LEN];
+    // each thread loads one element from global to shared mem
+    unsigned int tid = threadIdx.x;//0-128
+    unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+    double tmp=g_idata[i];
+    sdata[tid] = tmp;
+    asdata[tid]=tmp*tmp;
+    __syncthreads();
+    // do reduction in shared mem
+    for (unsigned int s=blockDim.x/2; s>0; s>>=1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        else if(tid-64<s)
+        {
+            asdata[tid-64]+=asdata[tid-64+s];
+        }
+        __syncthreads();
+    }
+    // write result for this block to global mem
+
+    double mean = sdata[0]/FEATURE_LEN;
+    double var = sqrt(asdata[0]/ FEATURE_LEN - mean * mean);
+    tmp=(tmp-mean)/var;
+    g_idata[i]=tmp;
+    //if(tid==0) printf("%d sum:%f\n",blockIdx.x,tmp);
+}
+
+cudaError_t MulWithCuda(double* A, double* B, double* C, int *IC, int matrixSize);
+__global__ void CalDistanceCuda(double *A, double *B, double *C, int blockRow, int blockCol,int featureNum)
 {
     double ans=0;
     //Need to copy A[bx*BLOCK_SIZE:(bx+1)*BLOCK_SIZE][:]
     //Need to copy B[by*BLOCK_SIZE:(by+1)*BLOCK_SIZE][:]
-
     __shared__ double AC[BLOCK_SIZE][FEATURE_LEN];//BLOCK_SIZE*blockCol
     __shared__ double BC[BLOCK_SIZE][FEATURE_LEN];
 
@@ -57,26 +130,8 @@ __global__ void matrixMulCUDA(double *A, double *B, double *C, int blockRow, int
     }
     __syncthreads();
 
-    /*
-    for(int i=0;i<16;i++)
-    {
-        for(int j=0;j<128;j++)
-            printf("%f ",BC[i][j]);
-        printf("\n");
-    }
-*/
-    //if(blockIdx.x==8&&blockIdx.y==8)
-    //    printf("blockIdx.x blockIdx.y threadIdx.x threadIdx.y %d %d %d %d\n",blockIdx.x,blockIdx.y,threadIdx.x,threadIdx.y);
-    //if(blockIdx.x==8&&blockIdx.y==8&&threadIdx.x==0&&threadIdx.y==0)
-    //        printf("%f",ans);
     for(int k=0;k<FEATURE_LEN;k++)
-    {
         ans+=(AC[threadIdx.x][k]-BC[threadIdx.y][k])*(AC[threadIdx.x][k]-BC[threadIdx.y][k]);
-    }
-
-    //if(threadIdx.x==0&&threadIdx.y==0&&blockIdx.x==0&&blockIdx.y==0)
-    //    printf("%f",ans);
-
 
     if((blockIdx.x*BLOCK_SIZE+threadIdx.x)<featureNum&&(blockIdx.y*BLOCK_SIZE+threadIdx.y)<featureNum)
         C[(blockIdx.x*BLOCK_SIZE+threadIdx.x)*featureNum+(blockIdx.y*BLOCK_SIZE+threadIdx.y)]=ans;
@@ -104,6 +159,7 @@ int main(int argc, char *argv[])
     double* A = (double*)malloc(featureNum * FEATURE_LEN * sizeof(double)); // We represent a 2D matrix in the form of 1D array.
     double* B = (double*)malloc(featureNum * FEATURE_LEN * sizeof(double)); // We represent a 2D matrix in the form of 1D array.
     double* C = (double*)malloc(featureNum * featureNum * sizeof(double)); // We represent a 2D matrix in the form of 1D array.
+    int*   IC = (int*)   malloc(featureNum * sizeof(int));
 
     // Initiate matrix A.
     for(int i = 0; i < featureNum; i++){
@@ -111,12 +167,12 @@ int main(int argc, char *argv[])
             fa>>A[i * FEATURE_LEN + j];
             fb>>B[i * FEATURE_LEN + j];
         }
-        normalize(A+i*FEATURE_LEN);
-        normalize(B+i*FEATURE_LEN);
+        //normalize(A+i*FEATURE_LEN);
+        //normalize(B+i*FEATURE_LEN);
     }
 
     // Parallel.
-    cudaError_t cudaStatus = MulWithCuda(A,B,C,featureNum);
+    cudaError_t cudaStatus = MulWithCuda(A,B,C,IC,featureNum);
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "mulWithCuda failed!");return 1;}
 
 
@@ -144,11 +200,12 @@ int main(int argc, char *argv[])
 }
 
 // Helper function for using CUDA to add vectors in parallel.
-cudaError_t MulWithCuda(double* A, double* B, double* C, int featureNum)
+cudaError_t MulWithCuda(double* A, double* B, double* C, int* indC, int featureNum)
 {
     double *dev_A;
     double *dev_B;
     double *dev_C;
+    int *mC;
     cudaError_t cudaStatus;
 	cudaEvent_t start, stop;
     float gpu_time = 0.0f;
@@ -156,8 +213,12 @@ cudaError_t MulWithCuda(double* A, double* B, double* C, int featureNum)
     // Launch a kernel on the GPU with one thread for each element.
     int blockRowNum=featureNum%BLOCK_SIZE?featureNum/BLOCK_SIZE+1:featureNum/BLOCK_SIZE;
     int blockColNum=FEATURE_LEN%BLOCK_SIZE?FEATURE_LEN/BLOCK_SIZE+1:FEATURE_LEN/BLOCK_SIZE;
-    dim3 gridDime(blockRowNum,blockRowNum);
-    dim3 blockDime(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 CalDistanceGridDim(blockRowNum,blockRowNum);
+    dim3 CalDistanceBlockDim(BLOCK_SIZE,BLOCK_SIZE);
+    dim3 NormalizeGridDim(featureNum);
+    dim3 NormalizeBlockDim(FEATURE_LEN);
+    dim3 FindMinGridDim(featureNum);
+    dim3 FindMinBlockDim(1024);
 
     // Choose which GPU to run on, change this on a multi-GPU system.
     cudaStatus = cudaSetDevice(0);
@@ -176,6 +237,9 @@ cudaError_t MulWithCuda(double* A, double* B, double* C, int featureNum)
     cudaStatus = cudaMalloc((void**)&dev_C, featureNum * featureNum * sizeof(double));
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMalloc C failed!");goto Error;}
 
+    cudaStatus = cudaMalloc((void**)&mC, featureNum * sizeof(int));
+    if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMalloc mC failed!");goto Error;}
+
     // Copy input vectors from host memory to GPU buffers.
     cudaStatus = cudaMemcpy(dev_A, A, featureNum * FEATURE_LEN * sizeof(double), cudaMemcpyHostToDevice);
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMemcpy A failed!");goto Error;}
@@ -187,16 +251,20 @@ cudaError_t MulWithCuda(double* A, double* B, double* C, int featureNum)
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
 	cudaEventRecord(start, 0);
-	printf("Row,Col %d %d\n",blockRowNum,blockColNum);
 
-    matrixMulCUDA<<<gridDime,blockDime>>>(dev_A,dev_B,dev_C,blockRowNum,blockColNum,featureNum);
-
+	NormalizeCuda<<<NormalizeGridDim,NormalizeBlockDim>>>(dev_A);
+	NormalizeCuda<<<NormalizeGridDim,NormalizeBlockDim>>>(dev_B);
+	// Is sync needed?
+    CalDistanceCuda<<<CalDistanceGridDim,CalDistanceBlockDim>>>(dev_A,dev_B,dev_C,blockRowNum,blockColNum,featureNum);
+    //TODO replace 256
+    FindMinCuda<<<FindMinGridDim,FindMinBlockDim>>>(dev_C,mC,featureNum,256,0.7*0.7);
+    // Is sync needed?
     // copy result back
     cudaStatus = cudaMemcpy(C, dev_C, featureNum * featureNum * sizeof(double), cudaMemcpyDeviceToHost);
-
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMemcpy C back failed!");goto Error;}
 
-
+    cudaStatus = cudaMemcpy(indC, mC, featureNum * sizeof(int), cudaMemcpyDeviceToHost);
+    if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMemcpy indC back failed!");goto Error;}
 
     cudaStatus = cudaDeviceSynchronize();
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching Kernel!\n", cudaStatus);goto Error;}
@@ -206,6 +274,9 @@ cudaError_t MulWithCuda(double* A, double* B, double* C, int featureNum)
 	cudaEventSynchronize(stop);
 	cudaEventElapsedTime(&gpu_time, start, stop);
 	printf("Time spent: %.5f\n", gpu_time);
+	for(int i=0;i<featureNum;i++)
+        printf("%d\n",indC[i]);
+
 	cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
