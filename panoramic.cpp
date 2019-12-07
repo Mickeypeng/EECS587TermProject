@@ -44,12 +44,21 @@ int main(int argc, char** argv){
         for(int i = 0; i < imageData.size() - 1; i++){
             for(int j = i + 1; j < imageData.size(); j++){
                 vector<vector<double> > h;
-                // cout << "run stitch" << endl;
-                int inliersNum = runStitch(imageData[i], imageData[j], h);
+                int matchNum = 0;
+                cout << "run stitch" << endl;
+                int inliersNum = runStitch(imageData[i], imageData[j], h, matchNum);
+                cout << "finish stitch" << endl;
                 if(inliersNum == -1){
                     continue;
                 }
-                // cout << "finish stitch" << endl;
+                // if (inliersNum > 5.9 + 0.22*double(matchNum)){
+                //     cout << i << j <<endl;
+
+                //     besth = h;
+                //     left = i;
+                //     right = j;
+                //     break;
+                // }
                 if(inliersNum > max_inliers){
                     max_inliers = inliersNum;
                     besth = h;
@@ -57,10 +66,14 @@ int main(int argc, char** argv){
                     right = j;
                 }
             }
+            // if(left != -1){
+            //     break;
+            // }
         }
-        // cout << "run warp" << endl;
+        cout << "run warp" << endl;
+        cout << left << right <<endl;
         outimg = warpImages(imageData[left], imageData[right], besth);
-        // cout << "finish warp" << endl;
+        cout << "finish warp" << endl;
         // namedWindow("Display Image", WINDOW_AUTOSIZE );
         // imshow("Display Image", outimg);
         // waitKey(0);

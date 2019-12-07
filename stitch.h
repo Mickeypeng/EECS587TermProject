@@ -239,10 +239,16 @@ Mat warpImages(Mat left_img, Mat right_img, vector<vector<double> >& h){
     ymin -= 0.5;
     xmax += 0.5;
     ymax += 0.5;
+    xmin = int(xmin);
+    ymin = int(ymin);
+    xmax = int(xmax);
+    ymax = int(ymax);
     Mat ht = (Mat_<float>(3,3) << 1,0,-xmin,0,1,-ymin,0,0,1);
     Mat outimg;
     warpPerspective(left_img, outimg, ht*trans, Size_<int>(xmax-xmin, ymax-ymin));
     // cout << "3"<< endl;
+    // cout << outimg.rows << "\t" << outimg.cols << endl;
+    // cout << right_img.rows << "\t" << right_img.cols << endl;
 
     for (int i = -ymin; i < -ymin + h2; i++){
         for (int j = -xmin; j < -xmin + w2; j++){
@@ -265,26 +271,26 @@ Mat warpImages(Mat left_img, Mat right_img, vector<vector<double> >& h){
     return outimg;
 }
 
-int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h){
+int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matchNum){
     if ( !left_img.data || !right_img.data){
         cout << "No image data" << endl;
     }
 
-    int nums_des = 400;
-    // cout << "1" << endl;
+    int nums_des = 1000;
+    cout << "1" << endl;
     Ptr<SIFT> detector = SIFT::create(nums_des);
     vector<KeyPoint> keypoints1, keypoints2;
     Mat descriptors1, descriptors2;
     detector->detectAndCompute( left_img, noArray(), keypoints1, descriptors1 );
     detector->detectAndCompute( right_img, noArray(), keypoints2, descriptors2 );
-    // cout << "2" << endl;
+    cout << "2" << endl;
     vector<vector<double> > des1;
     vector<vector<double> > des2;
 
     if(descriptors1.rows < nums_des || descriptors2.rows < nums_des ){
         cout << "Not " << nums_des << " descriptors, have total " << descriptors1.rows << endl;
     }
-    // cout << "3" << endl;
+    cout << "3" << endl;
     for (int i = 0; i < nums_des; i++) {
         vector<double> tmp1;
         vector<double> tmp2;
@@ -295,7 +301,7 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h){
         des1.push_back(tmp1);
         des2.push_back(tmp2);
     }
-    // cout << "4" << endl;
+    cout << "4" << endl;
     vector<vector<double> > distance(nums_des, vector<double>(nums_des, 0));
     for(int i = 0; i < nums_des; i++){
         for(int j = 0; j < nums_des; j++){
@@ -304,19 +310,20 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h){
             distance[i][j] = calDis(des1[i], des2[j]);
         }
     }
-    // cout << "5" << endl;
+    cout << "5" << endl;
     vector<DMatch> matches;
     findPair(distance, matches);
-    // cout << "6" << endl;
+    matchNum = matches.size();
+    cout << "6" << endl;
     vector<vector<float> > coords;
     findPos(matches, keypoints1, keypoints2, coords);
     int bestcount = 0;
-    // cout << "7" << endl;
+    cout << "7" << endl;
     // cout << coords.size() << endl;
     if(coords.size() < 4){
         return -1;
     }
     h = ransac(coords, bestcount);
-    // cout << "8" << endl;
+    cout << "8" << endl;
     return bestcount;
 }
