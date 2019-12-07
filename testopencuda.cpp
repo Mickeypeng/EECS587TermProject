@@ -11,6 +11,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/xfeatures2d.hpp>
+//https://intellij-support.jetbrains.com/hc/en-us/community/posts/360000721019-How-to-use-or-add-a-static-library-a-into-a-C-project-in-CLion-under-Linux
 
 #pragma comment ( lib,"opencv_core320.lib")
 #pragma comment ( lib,"opencv_highgui320.lib")

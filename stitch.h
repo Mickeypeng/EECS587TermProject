@@ -57,10 +57,7 @@ int findMatch(vector<double>& dis, double thres){
             continue;
         }
     }
-    // cout << "first: " << firstmin << endl;
-    // cout << "second: " << secondmin << endl;
     if(firstmin/secondmin< thres){
-        // cout << firstindex << endl;
         return firstindex;
     }
     return -1;
@@ -172,7 +169,7 @@ double pointDis(vector<float>& p, vector<vector<double> >& h){
     return sqrt((ep1[0] - p[2])*(ep1[0] - p[2])+(ep1[1] - p[3])*(ep1[1] - p[3]));
 }
 
-vector<vector<double> > ransac(vector<vector<float> >& coords){
+vector<vector<double> > ransac(vector<vector<float> >& coords, int& bestcount){
     int numTrials = 100;
     float thres = 5.0;
     int K = 4;
@@ -199,8 +196,9 @@ vector<vector<double> > ransac(vector<vector<float> >& coords){
     }
     vector<vector<double> > besth(3, vector<double>(3, 0));
     fitModel(bestinliers, besth);
-    cout << bestinliers.size() << endl;
-    cout << "error: " << besterror / bestinliers.size() << endl;
+    bestcount = bestinliers.size();
+    // cout << bestinliers.size() << endl;
+    // cout << "error: " << besterror / bestinliers.size() << endl;
     return besth;
 }
 
@@ -223,7 +221,7 @@ Mat warpImages(Mat left_img, Mat right_img, vector<vector<double> >& h){
             sc1.at<float>(i, j) = sc1.at<float>(i, j) / sc1.at<float>(2, j);
         }
     }
-    cout << sc1 << endl;
+    // cout << "1" << endl;
     float xmin, ymin = numeric_limits<float>::max();
     float xmax, ymax = numeric_limits<float>::min();
     for(int i = 0; i < 4; i++){
@@ -236,55 +234,57 @@ Mat warpImages(Mat left_img, Mat right_img, vector<vector<double> >& h){
         ymax = std::max(ymax, sc1.at<float>(1, i));
         ymax = std::max(ymax, corner2.at<float>(1, i));
     }
-    cout << xmin << ymin << endl;
-    cout << xmax << ymax << endl;
+    // cout << "2" << endl;
+    xmin -= 0.5;
+    ymin -= 0.5;
+    xmax += 0.5;
+    ymax += 0.5;
     Mat ht = (Mat_<float>(3,3) << 1,0,-xmin,0,1,-ymin,0,0,1);
     Mat outimg;
     warpPerspective(left_img, outimg, ht*trans, Size_<int>(xmax-xmin, ymax-ymin));
+    // cout << "3"<< endl;
+
     for (int i = -ymin; i < -ymin + h2; i++){
         for (int j = -xmin; j < -xmin + w2; j++){
-            if (outimg.at<uchar>(i, j) == 0)
-                outimg.at<uchar>(i, j) = right_img.at<uchar>(i+ymin, j+xmin);
-            else
-                outimg.at<uchar>(i, j) = (int(outimg.at<uchar>(i, j)) + int(right_img.at<uchar>(i+ymin, j+xmin)))/2;
+            Vec3b outPix= outimg.at<Vec3b>(i, j);
+            Vec3b rightPix = right_img.at<Vec3b>(i + ymin, j + xmin);
+            if (outPix.val[0] == 0 && outPix.val[1] == 0 && outPix.val[2] == 0){
+                outimg.at<Vec3b>(i, j)[0] = rightPix.val[0]; 
+                outimg.at<Vec3b>(i, j)[1] = rightPix.val[1]; 
+                outimg.at<Vec3b>(i, j)[2] = rightPix.val[2];
+            }else if(rightPix.val[0] == 0 && rightPix.val[1] == 0 && rightPix.val[2] == 0){
+                continue;
+            }else{
+                outimg.at<Vec3b>(i, j)[0] = (int(outPix.val[0]) + int(rightPix.val[0]))/2;
+                outimg.at<Vec3b>(i, j)[1] = (int(outPix.val[1]) + int(rightPix.val[1]))/2;
+                outimg.at<Vec3b>(i, j)[2] = (int(outPix.val[2]) + int(rightPix.val[2]))/2;
+            }
         }   
     }
        
     return outimg;
 }
 
-int main(int argc, char** argv ){
-    if ( argc != 3 ){
-        cout << "usage: serial <Image_Path_Left> <Image_Path_Right>" << endl;
-        return -1;
-    }
-    Mat left_img;
-    left_img = imread(argv[1], 0);
-    Mat right_img;
-    right_img = imread(argv[2], 0);
+int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h){
     if ( !left_img.data || !right_img.data){
         cout << "No image data" << endl;
-        return -1;
     }
 
-    int nums_des = 1000;
-
+    int nums_des = 400;
+    // cout << "1" << endl;
     Ptr<SIFT> detector = SIFT::create(nums_des);
     vector<KeyPoint> keypoints1, keypoints2;
     Mat descriptors1, descriptors2;
     detector->detectAndCompute( left_img, noArray(), keypoints1, descriptors1 );
     detector->detectAndCompute( right_img, noArray(), keypoints2, descriptors2 );
-
-    // cout << descriptors1.type() << endl;
-
+    // cout << "2" << endl;
     vector<vector<double> > des1;
     vector<vector<double> > des2;
 
     if(descriptors1.rows < nums_des || descriptors2.rows < nums_des ){
         cout << "Not " << nums_des << " descriptors, have total " << descriptors1.rows << endl;
-        return -1;
     }
-
+    // cout << "3" << endl;
     for (int i = 0; i < nums_des; i++) {
         vector<double> tmp1;
         vector<double> tmp2;
@@ -295,51 +295,28 @@ int main(int argc, char** argv ){
         des1.push_back(tmp1);
         des2.push_back(tmp2);
     }
-
-    // cout << des1.size() << endl;
-    // for(int i = 0; i < 128; i++){
-    //     cout << des1[0][i] << endl;
-    // }
-    // normalize(des1[0]);
-    // for(int i = 0; i < 128; i++){
-    //     cout << des1[0][i] << endl;
-    // }
-
-    // writeMatFile(des1, "img1_400.txt");
-    // writeMatFile(des2, "img2_400.txt");
-
+    // cout << "4" << endl;
     vector<vector<double> > distance(nums_des, vector<double>(nums_des, 0));
     for(int i = 0; i < nums_des; i++){
         for(int j = 0; j < nums_des; j++){
             normalize(des1[i]);
             normalize(des2[j]);
             distance[i][j] = calDis(des1[i], des2[j]);
-            // distance[i][j] = norm(des1[i], des2[j], NORM_L2, noArray() );
         }
     }
-
-    // writeMatFile(distance, "400_distance.txt");
-
+    // cout << "5" << endl;
     vector<DMatch> matches;
     findPair(distance, matches);
-    
-    cout << matches.size() << endl;
-    // Mat outimg;
-    // drawMatches(left_img, keypoints1, right_img, keypoints2, matches, outimg);
-
+    // cout << "6" << endl;
     vector<vector<float> > coords;
     findPos(matches, keypoints1, keypoints2, coords);
-    vector<vector<double> > h = ransac(coords);
-
-    Mat outimg = warpImages(left_img, right_img, h);
-
-    // Mat nlimg;
-    // drawKeypoints(left_img, keypoints1, nlimg);
-    
-    // imwrite("./test.jpg", outimg);
-    
-    namedWindow("Display Image", WINDOW_AUTOSIZE );
-    imshow("Display Image", outimg);
-    waitKey(0);
-    return 0;
+    int bestcount = 0;
+    // cout << "7" << endl;
+    // cout << coords.size() << endl;
+    if(coords.size() < 4){
+        return -1;
+    }
+    h = ransac(coords, bestcount);
+    // cout << "8" << endl;
+    return bestcount;
 }
