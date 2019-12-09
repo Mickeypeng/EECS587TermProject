@@ -328,8 +328,8 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
     // cout << "5" << endl;
     // vector<DMatch> matches;
     // findPair(distance, matches);
-    double* des1 = descriptors1.isContinuous()? descriptors1.data: descriptors1.clone().data;
-    double* des2 = descriptors2.isContinuous()? descriptors2.data: descriptors2.clone().data;
+    double* des1 = descriptors1.data;
+    double* des2 = descriptors2.data;
     double thres = 0.7;
     int* indC = new int[nums_des];
     MulWithCuda(des1, des2, indC, nums_des, thres);
