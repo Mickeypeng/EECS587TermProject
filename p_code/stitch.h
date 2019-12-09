@@ -288,7 +288,7 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
         cout << "No image data" << endl;
     }
 
-    int nums_des = 1000;
+    int nums_des = 400;
     // cout << "1" << endl;
     Ptr<SIFT> detector = SIFT::create(nums_des);
     vector<KeyPoint> keypoints1, keypoints2;
