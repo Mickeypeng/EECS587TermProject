@@ -285,6 +285,7 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
     detector->detectAndCompute( right_img, noArray(), keypoints2, descriptors2 );
     cout << "2" << endl;
     cout << descriptors1.type() << endl;
+    cout << descriptors1.rows << endl;
     vector<vector<double> > des1;
     vector<vector<double> > des2;
 
