@@ -2,9 +2,11 @@
 #include <fstream>
 #include <vector>
 #include <numeric>
+#include <chrono>
 #include "stitch.h"
 
 using namespace std;
+using namespace std::chrono;
 
 int main(int argc, char** argv){
     if ( argc != 3 ){
@@ -41,13 +43,14 @@ int main(int argc, char** argv){
         int left = -1;
         int right = -1;
 
+        auto start = high_resolution_clock::now();
         for(int i = 0; i < imageData.size() - 1; i++){
             for(int j = i + 1; j < imageData.size(); j++){
                 vector<vector<double> > h;
                 int matchNum = 0;
-                cout << "run stitch" << endl;
+                // cout << "run stitch" << endl;
                 int inliersNum = runStitch(imageData[i], imageData[j], h, matchNum);
-                cout << "finish stitch" << endl;
+                // cout << "finish stitch" << endl;
                 if(inliersNum == -1){
                     continue;
                 }
@@ -70,10 +73,13 @@ int main(int argc, char** argv){
             //     break;
             // }
         }
-        cout << "run warp" << endl;
-        cout << left << right <<endl;
+        auto stop = high_resolution_clock::now();
+        auto duration = duration_cast<seconds>(stop - start); 
+        cout << "total stitch time: " << duration.count() << endl; 
+        // cout << "run warp" << endl;
+        // cout << left << right <<endl;
         outimg = warpImages(imageData[left], imageData[right], besth);
-        cout << "finish warp" << endl;
+        // cout << "finish warp" << endl;
         // namedWindow("Display Image", WINDOW_AUTOSIZE );
         // imshow("Display Image", outimg);
         // waitKey(0);
@@ -83,9 +89,9 @@ int main(int argc, char** argv){
         count--;
     }
     cout << "finish" << endl;
-    namedWindow("Display Image", WINDOW_AUTOSIZE );
-    imshow("Display Image", outimg);
-    waitKey(0);
-    // imwrite("./pano.jpg", outimg);
+    // namedWindow("Display Image", WINDOW_AUTOSIZE );
+    // imshow("Display Image", outimg);
+    // waitKey(0);
+    imwrite("./pano.jpg", outimg);
     return 0;
 }
