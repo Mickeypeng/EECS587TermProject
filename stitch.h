@@ -286,6 +286,7 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
     cout << "2" << endl;
     cout << descriptors1.type() << endl;
     cout << descriptors1.rows << endl;
+    cout << descriptors1.cols << endl;
     vector<vector<double> > des1;
     vector<vector<double> > des2;
 
