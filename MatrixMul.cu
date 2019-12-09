@@ -290,7 +290,7 @@ void MulWithCuda(double* A, double* B, int* indC, int featureNum, double thres)
     }
 
     // Allocate GPU buffers for two matrix
-    printf("test:%d\n", featureNum * FEATURE_LEN);
+    //printf("test:%d\n", featureNum * FEATURE_LEN);
     cudaStatus = cudaMalloc((void**)&dev_A, featureNum * 128 * sizeof(double));
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMalloc A failed!");goto Error;}
 
