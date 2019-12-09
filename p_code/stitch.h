@@ -338,7 +338,7 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
         }
     }
     double thres = 0.7;
-    int* indC = (double*)malloc(nums_des * sizeof(int));
+    int* indC = (int*)malloc(nums_des * sizeof(int));
     MulWithCuda(des1, des2, indC, nums_des, thres);
     vector<DMatch> matches;
     for(int i = 0; i < nums_des; i++){
