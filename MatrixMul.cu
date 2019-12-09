@@ -8,6 +8,17 @@
 #define BLOCK_SIZE 16
 #define FEATURE_LEN 128
 using namespace std;
+//return is the max 2^power where return<featureNum
+inline int find2pow(int featureNum)
+{
+    int base=1;
+    while(featureNum!=1)
+    {
+        featureNum=featureNum>>1;
+        base*=2;
+    }
+    return featureNum==base?base/2:base;
+}
 //kp[featureNum][4]
 //h[3][3]->h[9]
 __global__ void InlineCuda(double *kp, bool *choose, double* h,int featureNum,double thres) {
@@ -279,6 +290,7 @@ void MulWithCuda(double* A, double* B, int* indC, int featureNum, double thres)
     }
 
     // Allocate GPU buffers for two matrix
+    printf("test:%d\n", featureNum * FEATURE_LEN);
     cudaStatus = cudaMalloc((void**)&dev_A, featureNum * FEATURE_LEN * sizeof(double));
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMalloc A failed!");goto Error;}
 
