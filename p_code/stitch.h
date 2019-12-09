@@ -5,6 +5,7 @@
 #include <limits>
 #include <fstream>
 #include <stdlib.h> 
+#include <cstdlib>
 #include <algorithm>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
@@ -328,8 +329,8 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
     // cout << "5" << endl;
     // vector<DMatch> matches;
     // findPair(distance, matches);
-    double* des1 = new double[nums_des * 128];
-    double* des2 = new double[nums_des * 128];
+    double* des1 = (double*)malloc(nums_des * 128 * sizeof(double));
+    double* des2 = (double*)malloc(nums_des * 128 * sizeof(double));
     for(int i = 0; i < nums_des; i++){
         for(int j = 0; j < 128; j++){
             des1[i*nums_des + j] = double(*(descriptors1.ptr<float>(i) + j));
@@ -337,7 +338,7 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
         }
     }
     double thres = 0.7;
-    int* indC = new int[nums_des];
+    int* indC = (double*)malloc(nums_des * sizeof(int));
     MulWithCuda(des1, des2, indC, nums_des, thres);
     vector<DMatch> matches;
     for(int i = 0; i < nums_des; i++){
