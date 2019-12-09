@@ -328,6 +328,8 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
     // cout << "5" << endl;
     // vector<DMatch> matches;
     // findPair(distance, matches);
+    descriptors1.convertTo(descriptors1,CV_64F);
+    descriptors2.convertTo(descriptors2,CV_64F);
     double* des1 = descriptors1.data;
     double* des2 = descriptors2.data;
     double thres = 0.7;
