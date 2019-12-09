@@ -333,8 +333,8 @@ int runStitch(Mat left_img, Mat right_img, vector<vector<double> >& h, int& matc
     double* des2 = (double*)malloc(nums_des * 128 * sizeof(double));
     for(int i = 0; i < nums_des; i++){
         for(int j = 0; j < 128; j++){
-            des1[i*nums_des + j] = double(descriptors1.at<float>(i*nums_des + j));
-            des2[i*nums_des + j] = double(descriptors2.at<float>(i*nums_des + j));
+            des1[i*128 + j] = double(descriptors1.at<float>(i*128 + j));
+            des2[i*128 + j] = double(descriptors2.at<float>(i*128 + j));
         }
     }
     double thres = 0.7;
