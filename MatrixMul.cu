@@ -246,8 +246,12 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t MulWithCuda(double* A, double* B, double* C, int* indC, int featureNum)
+// Helper function for using CUDA to find nearest
+//A[featureNum, 128]
+//B[featureNum, 128]
+//C [featureNum,featureNum] is the distance of A,B
+//indC[featureNum] is index, where -1 as unmatch
+void MulWithCuda(double* A, double* B, int* indC, int featureNum, double thres)
 {
     double *dev_A;
     double *dev_B;
@@ -303,13 +307,10 @@ cudaError_t MulWithCuda(double* A, double* B, double* C, int* indC, int featureN
 	NormalizeCuda<<<NormalizeGridDim,NormalizeBlockDim>>>(dev_B);
 	// Is sync needed?
     CalDistanceCuda<<<CalDistanceGridDim,CalDistanceBlockDim>>>(dev_A,dev_B,dev_C,blockRowNum,blockColNum,featureNum);
-    //TODO replace 256
-    FindMinCuda<<<FindMinGridDim,FindMinBlockDim>>>(dev_C,mC,featureNum,256,0.7);
+    //TODO replace 512
+    FindMinCuda<<<FindMinGridDim,FindMinBlockDim>>>(dev_C,mC,featureNum,512,thres);
     // Is sync needed?
     // copy result back
-    cudaStatus = cudaMemcpy(C, dev_C, featureNum * featureNum * sizeof(double), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMemcpy C back failed!");goto Error;}
-
     cudaStatus = cudaMemcpy(indC, mC, featureNum * sizeof(int), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {fprintf(stderr, "cudaMemcpy indC back failed!");goto Error;}
 
@@ -320,14 +321,13 @@ cudaError_t MulWithCuda(double* A, double* B, double* C, int* indC, int featureN
 	cudaEventRecord(stop, 0);
 	cudaEventSynchronize(stop);
 	cudaEventElapsedTime(&gpu_time, start, stop);
-	printf("Time spent: %.5f\n", gpu_time);
-	for(int i=0;i<featureNum;i++)
-        printf("%d\n",indC[i]);
+	//printf("Time spent: %.5f\n", gpu_time);
+	//for(int i=0;i<featureNum;i++)
+        //printf("%d\n",indC[i]);
 
 	cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
 Error:
-    cudaFree(dev_A);cudaFree(dev_B);cudaFree(dev_C);
-    return cudaStatus;
+    cudaFree(dev_A);cudaFree(dev_B);cudaFree(dev_C);cudaFree(mC);
 }
